@@ -1,0 +1,34 @@
+name: Sync five Kobo forms privately
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '9,24,39,54 * * * *'
+permissions:
+  contents: write
+concurrency:
+  group: private-kobo-sync
+  cancel-in-progress: false
+jobs:
+  sync:
+    if: github.event.repository.private == true
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Load all forms and compute Tikina aggregates
+        env:
+          PRIVATE_REPOSITORY: 'true'
+          KOBO_TOKEN: ${{ secrets.KOBO_TOKEN }}
+          DASHBOARD_TOKEN: ${{ secrets.DASHBOARD_TOKEN }}
+        run: node scripts/fetch-tikina-evidence.mjs
+      - name: Save private evidence and publication aggregate
+        run: |
+          git config user.name 'Fiji private WASH sync'
+          git config user.email 'wash-sync@users.noreply.github.com'
+          git add data/
+          if ! git diff --cached --quiet; then
+            git commit -m 'Refresh private assessment evidence and Tikina aggregate'
+            git push
+          fi
